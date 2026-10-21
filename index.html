@@ -1,0 +1,916 @@
+<title>Trace Spaces</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Palette follows the TRACE logo blue. Layout: a front-desk console. Top bar + tabs, one working pane; the day timeline is the hero. */
+:root{
+  --bg:#F3F4F8; --surface:#FFFFFF; --sunk:#E8EAF2; --ink:#161A2B; --muted:#5B6175; --line:#D9DCE7;
+  --accent:#3C4FF8; --accent-ink:#FFFFFF; --accent-soft:#E6E9FF;
+  --booked:#38415C; --booked-soft:#E4E7EF; --clash:#B4410E; --clash-soft:#FBE9DE;
+  --free:#1C7A4E; --warn:#8F5E00; --warn-soft:#FAF0D6; --now:#B4410E;
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1018; --surface:#151826; --sunk:#1B1F30; --ink:#E6E8F2; --muted:#9599B0; --line:#282C40;
+  --accent:#8794FF; --accent-ink:#0B0E24; --accent-soft:#1D2250;
+  --booked:#AEB8D3; --booked-soft:#22273A; --clash:#F08A55; --clash-soft:#3A2015;
+  --free:#62CC95; --warn:#E3B04B; --warn-soft:#352A10; --now:#F08A55; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1018; --surface:#151826; --sunk:#1B1F30; --ink:#E6E8F2; --muted:#9599B0; --line:#282C40;
+  --accent:#8794FF; --accent-ink:#0B0E24; --accent-soft:#1D2250;
+  --booked:#AEB8D3; --booked-soft:#22273A; --clash:#F08A55; --clash-soft:#3A2015;
+  --free:#62CC95; --warn:#E3B04B; --warn-soft:#352A10; --now:#F08A55; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body)}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-size:.86em;font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+
+.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{display:flex;align-items:center;gap:12px;padding-block:14px 8px;flex-wrap:wrap}
+.mark{width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:700 15px var(--f-display)}
+.brand h1{font-size:22px}
+.logo{height:46px;width:auto;max-width:160px;object-fit:contain;display:block}
+.brand .sub{color:var(--muted);font-size:13px}
+.brand .spacer{flex:1}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:0;background:none;padding:10px 14px;border-bottom:2px solid transparent;color:var(--muted);font-weight:600;cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .count{font-size:11px;background:var(--clash);color:var(--surface);border-radius:999px;padding:1px 7px;margin-left:6px}
+
+main{padding-block:24px 64px}
+.pane{display:flex;flex-direction:column;gap:20px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{border-color:transparent;background:none}
+.btn.danger{color:var(--clash)}
+.btn.sm{padding:5px 10px;font-size:13px}
+input,select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--muted)}
+label.f > *{color:var(--ink);font-weight:400;font-size:15px}
+.head{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap}
+.head h2{font-size:26px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.stat b{display:block;font:700 24px var(--f-display);font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+
+.gridbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
+.grid{min-width:780px}
+.grow{display:grid;grid-template-columns:200px 1fr;border-bottom:1px solid var(--line)}
+.grow:last-child{border-bottom:0}
+.glabel{padding:12px 14px;display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--line)}
+.glabel b{font-weight:700}
+.glabel span{font-size:12px;color:var(--muted)}
+.gtrack{position:relative;min-height:62px;cursor:copy;
+  background-image:linear-gradient(to right,var(--line) 1px,transparent 1px);background-size:calc(100%/12) 100%}
+.gtrack:hover{background-color:var(--accent-soft)}
+.hours{min-height:30px;cursor:default;background:none}
+.hours:hover{background-color:transparent}
+.hours span{position:absolute;top:7px;font-size:11px;color:var(--muted);transform:translateX(4px)}
+.ghead .glabel{padding-block:6px}
+.blk{position:absolute;top:8px;bottom:8px;border-radius:6px;background:var(--booked);color:var(--bg);padding:4px 8px;font-size:12px;line-height:1.3;overflow:hidden;cursor:pointer;border:0;text-align:left}
+.blk b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk.unpaid{background:repeating-linear-gradient(135deg,var(--booked) 0 8px,color-mix(in srgb,var(--booked) 78%,var(--surface)) 8px 16px)}
+.nowline{position:absolute;top:0;bottom:0;width:2px;background:var(--now);pointer-events:none}
+.desktrack{cursor:pointer;display:flex;align-items:center;gap:12px;padding:0 14px;background:none}
+.meter{flex:1;height:14px;background:var(--sunk);border-radius:999px;overflow:hidden;display:flex}
+.meter i{display:block;height:100%;background:var(--booked)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:6px;background:var(--booked)}
+.legend i.u{background:repeating-linear-gradient(135deg,var(--booked) 0 4px,color-mix(in srgb,var(--booked) 70%,var(--surface)) 4px 8px)}
+.legend i.n{background:var(--now);width:3px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.panel h3{font-size:18px;margin-bottom:12px}
+.finder{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-items:end}
+.results{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.res{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--sunk);flex-wrap:wrap}
+
+.tablebox{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:860px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+td small{display:block;color:var(--muted)}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.p-ok{background:var(--accent-soft);color:var(--free)}
+.p-cx{background:var(--sunk);color:var(--muted);text-decoration:line-through}
+.p-un{background:var(--warn-soft);color:var(--warn)}
+.p-new{background:var(--clash-soft);color:var(--clash)}
+tr.cancelled td{color:var(--muted)}
+.empty{padding:32px;text-align:center;color:var(--muted)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.card h3{font-size:19px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-weight:600}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:12px;background:var(--sunk);padding:2px 8px;border-radius:6px}
+.type{font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--accent)}
+
+.overlay{position:fixed;inset:0;background:color-mix(in srgb,var(--ink) 45%,transparent);z-index:50;display:flex;justify-content:center;align-items:flex-start;overflow-y:auto;
+  padding:max(24px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(24px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.modal{background:var(--surface);border-radius:14px;width:100%;max-width:620px;padding:22px;display:flex;flex-direction:column;gap:16px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal h2{font-size:22px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fgrid .full{grid-column:1/-1}
+@media (max-width:520px){.fgrid{grid-template-columns:1fr}}
+.check{border-radius:10px;padding:12px 14px;font-size:14px}
+.check.ok{background:var(--accent-soft);color:var(--free)}
+.check.bad{background:var(--clash-soft);color:var(--clash)}
+.check b{display:block;font-size:15px;margin-bottom:2px}
+.price{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:12px}
+.price b{font:700 22px var(--f-display);font-variant-numeric:tabular-nums}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px}
+
+.inq{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;grid-template-columns:1fr auto;gap:12px}
+@media (max-width:640px){.inq{grid-template-columns:1fr}}
+.inq pre{margin:8px 0 0;white-space:pre-wrap;font:13px/1.5 var(--f-mono);background:var(--sunk);padding:10px 12px;border-radius:8px}
+.inq .acts{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.note{font-size:13px;color:var(--muted);background:var(--warn-soft);border-radius:8px;padding:10px 12px}
+
+.public{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.phero{background:var(--accent);color:var(--accent-ink);padding:28px 24px}
+.phero h2{font-size:30px}
+.phero p{margin:6px 0 0;opacity:.9;max-width:56ch}
+.pbody{padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:28px}
+@media (max-width:820px){.pbody{grid-template-columns:1fr}}
+.avl{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.avl div{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:8px;background:var(--sunk);font-size:14px}
+.ok-t{color:var(--free);font-weight:700}.bad-t{color:var(--clash);font-weight:700}
+.sent{background:var(--accent-soft);color:var(--free);border-radius:10px;padding:16px}
+
+.doc{max-width:860px;display:flex;flex-direction:column;gap:30px}
+.doc section{display:flex;flex-direction:column;gap:10px}
+.doc h2{font-size:28px}
+.doc h3{font-size:20px;padding-top:6px}
+.doc p,.doc li{max-width:68ch}
+.doc p{margin:0}
+.doc ul,.doc ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.doc .tablebox table{min-width:620px}
+.lede{font-size:18px;color:var(--muted)}
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.flow div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px}
+.flow b{display:block;font-family:var(--f-display);font-size:15px;margin-bottom:4px}
+.flow.asis div{background:var(--clash-soft);border-color:transparent}
+.flow.tobe div{background:var(--accent-soft);border-color:transparent}
+.gwt{font-family:var(--f-mono);font-size:13px;background:var(--sunk);border-radius:8px;padding:10px 12px;white-space:pre-wrap;margin:0}
+
+.locpick{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.locpick select{max-width:min(260px,60vw);font-weight:600;color:var(--ink)}
+@media (max-width:640px){.locpick{order:5;width:100%}.locpick select{flex:1;max-width:none}}
+.locgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.loccard{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer}
+.loccard:hover{border-color:var(--muted)}
+.loccard.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+.loccard b{font-size:15px}.loccard span{font-size:13px;color:var(--muted)}.loccard small{font-size:12px;color:var(--accent);font-weight:600;margin-top:4px}
+.demobar{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--ink);color:var(--bg);
+  padding-block:14px max(14px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.demobar .in{max-width:1180px;margin:0 auto;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.demobar .txt{flex:1;min-width:240px}
+.demobar .step{font:500 12px var(--f-mono);opacity:.7;letter-spacing:.04em}
+.demobar h3{font-size:19px;margin:2px 0 4px;color:var(--bg)}
+.demobar p{margin:0;font-size:14px;opacity:.88;max-width:80ch}
+.demobar .btn{background:transparent;color:var(--bg);border-color:color-mix(in srgb,var(--bg) 35%,transparent)}
+.demobar .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+body.demo main{padding-bottom:220px}
+body.demo .overlay{padding-bottom:220px}
+body.demo .toast{bottom:190px}
+.grow.hl .gtrack,.grow.hl .glabel{background-color:var(--warn-soft)}
+.toast{position:fixed;left:50%;bottom:max(20px,calc(env(safe-area-inset-bottom,0px) + 12px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:60;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translate(-50%,8px);opacity:0}}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <img class="logo" src="logo.png" alt="TRACE" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+      <div class="mark" aria-hidden="true" hidden>T</div>
+      <div><h1>Trace Spaces</h1><div class="sub">Booking desk · TRACE Sri Lanka</div></div>
+      <div class="spacer"></div>
+      <label class="locpick"><span>Location</span><select id="locSel" aria-label="Location"></select></label>
+      <button class="btn" id="demoBtn" title="Resets the sample data and walks through the demo">Run demo</button>
+      <button class="btn primary" id="newBtn">New booking</button>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="avail" aria-selected="true">Availability</button>
+      <button class="tab" role="tab" data-tab="bookings">Bookings</button>
+      <button class="tab" role="tab" data-tab="spaces">Spaces</button>
+      <button class="tab" role="tab" data-tab="inq">Inquiries<span class="count" id="inqCount" hidden></span></button>
+      <button class="tab" role="tab" data-tab="public">Public page</button>
+      <button class="tab" role="tab" data-tab="solution">Our solution</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- AVAILABILITY -->
+  <section class="pane" id="p-avail">
+    <div class="head">
+      <div><div class="eyebrow" id="availLoc">What is free</div><h2 id="availTitle">Today</h2></div>
+      <div class="row">
+        <button class="btn sm" id="prevDay" aria-label="Previous day">←</button>
+        <input type="date" id="availDate" aria-label="Date">
+        <button class="btn sm" id="nextDay" aria-label="Next day">→</button>
+        <button class="btn sm ghost" id="todayBtn">Today</button>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="gridbox"><div class="grid" id="grid"></div></div>
+    <div class="legend"><span><i></i>Booked, paid</span><span><i class="u"></i>Booked, unpaid</span><span><i class="n"></i>Now</span><span>Click an empty slot to book it</span></div>
+
+    <div class="panel">
+      <h3>Find a free space</h3>
+      <div class="finder">
+        <label class="f">Date<input type="date" id="fdDate"></label>
+        <label class="f">From<select id="fdStart"></select></label>
+        <label class="f">To<select id="fdEnd"></select></label>
+        <label class="f">People<input type="number" id="fdPeople" min="1" value="10"></label>
+        <button class="btn primary" id="fdGo">Search</button>
+      </div>
+      <div class="results" id="fdResults"></div>
+    </div>
+  </section>
+
+  <!-- BOOKINGS -->
+  <section class="pane" id="p-bookings" hidden>
+    <div class="head">
+      <div><div class="eyebrow" id="bkLoc">All records</div><h2>Bookings</h2></div>
+      <div class="row">
+        <input type="search" id="bkSearch" placeholder="Search customer or ref" aria-label="Search">
+        <select id="bkSpace" aria-label="Space"></select>
+        <select id="bkStatus" aria-label="Status">
+          <option value="active">Active</option><option value="unpaid">Unpaid</option><option value="cancelled">Cancelled</option><option value="all">All</option>
+        </select>
+      </div>
+    </div>
+    <div class="tablebox"><table>
+      <thead><tr><th>Ref</th><th>Customer</th><th>Space</th><th>When</th><th>Total</th><th>Payment</th><th>Status</th><th></th></tr></thead>
+      <tbody id="bkBody"></tbody>
+    </table></div>
+  </section>
+
+  <!-- SPACES -->
+  <section class="pane" id="p-spaces" hidden>
+    <div class="head"><div><div class="eyebrow">TRACE network</div><h2 id="locCount">TRACE locations</h2></div></div>
+    <div class="locgrid" id="locCards"></div>
+    <p class="muted" style="margin:0;font-size:13px">Partner hubs, booked through their own teams: <span id="partners"></span></p>
+    <div class="head" style="margin-top:8px"><div><div class="eyebrow">Spaces at</div><h2 id="spacesLoc"></h2><p class="muted" id="spacesArea" style="margin:4px 0 0"></p></div></div>
+    <div class="cards" id="spaceCards"></div>
+    <p class="note">Spaces, seats, rates and contacts come from TRACE's own Spaces listing. Hot desk pools and their rates are sample values, since TRACE lists no per-desk pricing. Several listings show 150 seats and the same facilities, which TRACE should confirm.</p>
+  </section>
+
+  <!-- INQUIRIES -->
+  <section class="pane" id="p-inq" hidden>
+    <div class="head"><div><div class="eyebrow">From the public page</div><h2>Inquiries</h2></div></div>
+    <p class="note">Each inquiry shows the email the admin team receives. In this prototype it lands here; sending a real email needs a mail service (see Our solution › Next steps).</p>
+    <div class="pane" id="inqList"></div>
+  </section>
+
+  <!-- PUBLIC -->
+  <section class="pane" id="p-public" hidden>
+    <div class="public">
+      <div class="phero">
+        <h2>Book a TRACE space</h2>
+        <p>BAY 07, studios, meeting rooms and co-working across TRACE hubs, from Colombo to Jaffna. Check what is free, then send a request. Questions: +94 701 800 786 · connect@trace.lk</p>
+      </div>
+      <div class="pbody">
+        <div>
+          <h3>Check a date</h3>
+          <div class="row" style="margin-top:10px"><select id="pubLoc" aria-label="Location"></select><input type="date" id="pubDate" aria-label="Date to check"></div>
+          <div class="avl" id="pubAvail"></div>
+        </div>
+        <form id="pubForm" novalidate>
+          <h3 style="margin-bottom:12px">Request to book</h3>
+          <div class="fgrid">
+            <label class="f">Name<input id="pq-name" required></label>
+            <label class="f">Phone<input id="pq-phone" type="tel"></label>
+            <label class="f full">Email<input id="pq-email" type="email" required></label>
+            <label class="f full">Space (at the location chosen on the left)<select id="pq-space"></select></label>
+            <label class="f">Date<input id="pq-date" type="date" required></label>
+            <label class="f" id="pq-timeWrap">Time<input id="pq-time" placeholder="e.g. 10:00–13:00"></label>
+            <label class="f" id="pq-planWrap" hidden>Desk plan<select id="pq-plan"><option value="day">Per day</option><option value="week">Per week</option><option value="month">Per month</option></select></label>
+            <label class="f full">Message<textarea id="pq-msg" rows="3" placeholder="Number of people, purpose of the event"></textarea></label>
+          </div>
+          <p id="pq-err" class="bad-t" hidden></p>
+          <div class="row" style="margin-top:14px"><button class="btn primary" type="submit">Send request</button></div>
+          <div class="sent" id="pq-sent" hidden></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- SOLUTION -->
+  <section class="pane" id="p-solution" hidden>
+    <article class="doc">
+      <section>
+        <div class="eyebrow">T2T · Space Rental Hackathon · Squad 04</div>
+        <p class="muted" style="margin:0">Shaffron Wazny, R. Anuja Geesara Karunarathana, Ranithu Kavithmal Dimunga, Thahirah Razmi, G.L.D.A. De Silva</p>
+        <h2>Trace Spaces: one shared booking desk instead of Excel</h2>
+        <p class="lede">Every staff member works from the same live calendar. The system refuses a booking that clashes, and anyone can see what is free in seconds.</p>
+      </section>
+
+      <section>
+        <h3>1. Business analysis</h3>
+        <p><b>Problem statement.</b> TRACE runs hubs across Sri Lanka, from TRACE Expert City in Colombo 10 to Jaffna, Kandy, Rathnapura, Makandura and Uva Wellassa. Its public Spaces page lists each venue with seats and price, but has no live availability or booking. It rents meeting rooms, studios, an auditorium and co-working desks. Bookings arrive by phone and email and are kept in Excel sheets that several staff edit separately. This causes double bookings, slow answers to "is it free?", lost requests and incomplete customer and payment records.</p>
+        <p><b>Goal.</b> Replace the Excel process with the smallest working system that stops double booking and shows what is free.</p>
+
+        <h3>Stakeholders</h3>
+        <div class="tablebox"><table>
+          <thead><tr><th>Stakeholder</th><th>Need</th><th>How the solution helps</th></tr></thead>
+          <tbody>
+            <tr><td>Front-desk staff</td><td>Answer availability questions fast, never double book</td><td>Day timeline, free-space finder, clash blocking</td></tr>
+            <tr><td>Trace management</td><td>See occupancy and unpaid bookings</td><td>Daily stats, payment status on every booking</td></tr>
+            <tr><td>Customers</td><td>Quick answer, less email back-and-forth</td><td>Public availability view and request form</td></tr>
+            <tr><td>Nagarro (sponsor)</td><td>A reusable product, not a one-off</td><td>Generic space model that fits any venue</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>As-is process</h3>
+        <div class="flow asis">
+          <div><b>Call or email</b>Customer asks a staff member</div>
+          <div><b>Open Excel</b>Staff search one of several sheets</div>
+          <div><b>Reply by email</b>Takes hours to days</div>
+          <div><b>Customer pays</b>More emails, request often lost</div>
+          <div><b>Typed into sheet</b>Clash only found on the day</div>
+        </div>
+        <h3>To-be process</h3>
+        <div class="flow tobe">
+          <div><b>Request online</b>Customer sees free dates first</div>
+          <div><b>Admin notified</b>Inquiry with all details</div>
+          <div><b>Check availability</b>One shared timeline</div>
+          <div><b>Create booking</b>System blocks any clash</div>
+          <div><b>Track payment</b>Paid or unpaid on the record</div>
+        </div>
+
+        <h3>Scope</h3>
+        <p><b>In:</b> spaces list, availability by date, create, edit and cancel bookings, clash blocking, booking list with search and filters, desk booking by day, week or month, total price, public inquiry form.<br><b>Out (for today):</b> customer accounts, online payment, approval workflow, catering and other extras.</p>
+
+        <h3>Business rules</h3>
+        <ol>
+          <li>A room or BAY 07 cannot have two active bookings that overlap in time on the same date.</li>
+          <li>Desks can be booked until every desk at that location is taken on any day of the booking period (20 at Colombo 10).</li>
+          <li>Clash checks and suggested alternatives stay within the same location.</li>
+          <li>Desk plans run 1 day, 7 days or 30 days from the start date.</li>
+          <li>Bookings must fall within opening hours, 08:00 to 20:00, and end after they start.</li>
+          <li>People attending cannot exceed the space's capacity.</li>
+          <li>BAY 07 is hired per day (Rs. 200,000); other spaces are charged per hour; spaces listed "On demand" are priced by staff.</li>
+          <li>A cancelled booking keeps its record but frees the slot.</li>
+        </ol>
+
+        <h3>Non-functional requirements</h3>
+        <ul>
+          <li>Usable by front-desk staff with no training, on a laptop or a phone.</li>
+          <li>One source of truth: every staff member sees the same bookings.</li>
+          <li>Clash check runs before every save, including edits.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>2. Backlog (user stories, MoSCoW)</h3>
+        <div class="tablebox"><table>
+          <thead><tr><th>#</th><th>User story</th><th>Priority</th><th>Points</th></tr></thead>
+          <tbody>
+            <tr><td>US1</td><td>As staff, I can see all spaces with capacity, amenities and rate.</td><td>Must</td><td>2</td></tr>
+            <tr><td>US2</td><td>As staff, I can pick a date and see which spaces are free or booked.</td><td>Must</td><td>5</td></tr>
+            <tr><td>US3</td><td>As staff, I can create a booking with customer, space, date and time.</td><td>Must</td><td>3</td></tr>
+            <tr><td>US4</td><td>As staff, I am stopped when a booking clashes with an existing one.</td><td>Must</td><td>5</td></tr>
+            <tr><td>US5</td><td>As staff, I can view, edit and cancel bookings in one list.</td><td>Must</td><td>3</td></tr>
+            <tr><td>US6</td><td>As staff, I can book desks per day, week or month up to the desk count.</td><td>Should</td><td>3</td></tr>
+            <tr><td>US7</td><td>As staff, I see the total price for a booking.</td><td>Should</td><td>1</td></tr>
+            <tr><td>US8</td><td>As a visitor, I can send a booking request that reaches the admin team.</td><td>Should</td><td>3</td></tr>
+            <tr><td>US9</td><td>As staff, I can search and filter bookings.</td><td>Could</td><td>2</td></tr>
+            <tr><td>US10</td><td>As staff, I can find a free space for a time and group size.</td><td>Could</td><td>2</td></tr>
+            <tr><td>US11</td><td>As a customer, I can pay online and log in.</td><td>Won't (today)</td><td>–</td></tr>
+          </tbody>
+        </table></div>
+        <h3>Acceptance criteria for US4 (the key story)</h3>
+<pre class="gwt">Given Creator Space is booked 09:00–17:00 on a date
+When staff try to book Creator Space 14:00–15:00 on that date
+Then the booking is not saved
+And staff see who holds the slot and which spaces are free instead
+
+Given 20 desks are booked on a date
+When staff try to book 1 more desk covering that date
+Then the booking is refused with the date that is full
+
+Given a booking is cancelled
+When staff book the same slot
+Then the booking is saved</pre>
+      </section>
+
+      <section>
+        <h3>3. Project management</h3>
+        <h3>Team roles: Squad 04</h3>
+        <div class="tablebox"><table>
+          <thead><tr><th>Member</th><th>Role</th><th>Owns</th></tr></thead>
+          <tbody>
+            <tr><td>Shaffron Wazny</td><td>Project lead / Scrum master</td><td>Repo setup, timeline, demo script, merges</td></tr>
+            <tr><td>R. Anuja Geesara Karunarathana</td><td>Business analyst</td><td>Backlog, business rules, acceptance tests, Our solution tab</td></tr>
+            <tr><td>Ranithu Kavithmal Dimunga</td><td>Developer</td><td>Clash logic and validation (US4, US6)</td></tr>
+            <tr><td>Thahirah Razmi</td><td>Developer</td><td>Availability timeline and finder (US2, US10)</td></tr>
+            <tr><td>G.L.D.A. De Silva</td><td>Developer / QA</td><td>Bookings list, spaces, public form (US1, US5, US8), testing</td></tr>
+          </tbody>
+        </table></div>
+        <h3>Plan for 90 minutes</h3>
+        <div class="tablebox"><table>
+          <thead><tr><th>Time</th><th>Step</th><th>Done when</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">0–10</td><td>Agree on scope and business rules</td><td>Everyone can explain the clash rule</td></tr>
+            <tr><td class="mono">10–20</td><td>Write the backlog</td><td>US1–US11 prioritised with points</td></tr>
+            <tr><td class="mono">20–30</td><td>Git repo and first push</td><td>Every member has cloned and pushed once</td></tr>
+            <tr><td class="mono">30–75</td><td>Build Must stories, then Should</td><td>Clash blocked in the running app</td></tr>
+            <tr><td class="mono">75–90</td><td>Demo</td><td>Live walk-through, clash shown</td></tr>
+          </tbody>
+        </table></div>
+        <h3>Definition of done</h3>
+        <ul>
+          <li>Story meets its acceptance criteria in the running app.</li>
+          <li>Code is pushed to the group repo with a clear commit message.</li>
+          <li>Another member has tried it once.</li>
+        </ul>
+        <h3>Risks</h3>
+        <div class="tablebox"><table>
+          <thead><tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr></thead>
+          <tbody>
+            <tr><td>Run out of time</td><td>High</td><td>Build Must stories first, clash logic before UI polish</td></tr>
+            <tr><td>Merge conflicts</td><td>Medium</td><td>One owner per area, pull before push, small commits</td></tr>
+            <tr><td>Scope creep (payments, logins)</td><td>Medium</td><td>Marked Won't for today in the backlog</td></tr>
+            <tr><td>Real email not possible offline</td><td>Low</td><td>Inquiry inbox in the app; mail service in next phase</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section>
+        <h3>4. Demo script (3 minutes)</h3>
+        <ol>
+          <li>Open <b>Availability</b>. Today Creator Space is booked 09:00–17:00.</li>
+          <li>Click the Creator Space row at 14:00. The form opens and shows the clash, names the booking that holds it, and suggests free rooms. Save stays disabled.</li>
+          <li>Change the space to a suggested free room. The check turns green and the price appears. Save.</li>
+          <li>Book 6 desks for today. The system refuses because only a few desks are left.</li>
+          <li>Open <b>Public page</b>, send a request. Open <b>Inquiries</b> and turn it into a booking in one click.</li>
+          <li>Open <b>Bookings</b>, filter by Unpaid, mark one paid, cancel another and show the slot becomes free.</li>
+          <li>Switch the location to Jaffna to show every TRACE site runs on the same system.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h3>5. Next steps</h3>
+        <ul>
+          <li>Shared database and staff login so all staff use the same data from any device.</li>
+          <li>Email notifications to the admin team and confirmations to customers through a mail service.</li>
+          <li>Online payment and invoices; monthly occupancy and revenue report.</li>
+          <li>Load TRACE's real rooms, capacities and rates (the public site lists locations only).</li>
+          <li>The multi-location model already works, so the same product can be sold to BMICH, wedding halls and theatres.</li>
+        </ul>
+      </section>
+    </article>
+  </section>
+</main>
+
+<div class="overlay" id="overlay" hidden>
+  <form class="modal" id="bkForm" novalidate>
+    <div class="head"><h2 id="fTitle">New booking</h2><button type="button" class="btn ghost sm" id="fClose">Close</button></div>
+    <div class="fgrid">
+      <label class="f full">Space<select id="f-space"></select></label>
+      <label class="f">Date<input type="date" id="f-date"></label>
+      <label class="f" id="w-people">People<input type="number" id="f-people" min="1" value="1"></label>
+      <label class="f" id="w-start">From<select id="f-start"></select></label>
+      <label class="f" id="w-end">To<select id="f-end"></select></label>
+      <label class="f" id="w-plan" hidden>Desk plan<select id="f-plan"><option value="day">Per day</option><option value="week">Per week (7 days)</option><option value="month">Per month (30 days)</option></select></label>
+      <label class="f" id="w-qty" hidden>Desks<input type="number" id="f-qty" min="1" value="1"></label>
+      <label class="f">Customer name<input id="f-name" placeholder="Person or company"></label>
+      <label class="f">Phone<input id="f-phone" type="tel"></label>
+      <label class="f full">Email<input id="f-email" type="email"></label>
+      <label class="f full">Notes<textarea id="f-notes" rows="2"></textarea></label>
+      <label class="chk full"><input type="checkbox" id="f-paid"> Payment received</label>
+    </div>
+    <div class="check" id="fCheck"></div>
+    <div class="price"><span class="muted">Total</span><b id="fPrice">–</b></div>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="fCancel">Cancel</button><button class="btn primary" id="fSave" type="submit">Save booking</button></div>
+  </form>
+</div>
+
+<div class="demobar" id="demobar" hidden>
+  <div class="in">
+    <div class="txt"><div class="step" id="dStep"></div><h3 id="dTitle"></h3><p id="dSay"></p></div>
+    <div class="row"><button class="btn sm" id="dBack">Back</button><button class="btn sm primary" id="dNext">Next</button><button class="btn sm" id="dExit">Exit demo</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+const OPEN=8, CLOSE=20, KEY='trace-spaces-v3';
+/* Locations and spaces from TRACE's own Spaces listing (event-hub-frontend-rho.vercel.app/#spaces), checked 21 Oct 2026.
+   Hot desk pools and their day/week/month rates are SAMPLE values: TRACE lists no per-desk pricing. */
+const LOCATIONS=[
+  {id:'c10',name:'TRACE Expert City',area:'Maradana, Colombo 10',note:'Main campus: auditorium, studios, co-working'},
+  {id:'c04',name:'HomeTree Coworking',area:'Near Majestic City, Colombo 04',note:'Co-working community'},
+  {id:'c02',name:'TRACE Coworking Colombo 02',area:'Colombo 02',note:'Co-working, meeting room and event space'},
+  {id:'jaf',name:'TRACE Coworking Jaffna City',area:'Jaffna',note:'Flexible workspaces for freelancers, startups and teams'},
+  {id:'kdy',name:'Innovator Park – Kandy',area:'Kandy',note:'Co-working, event and class space, by TRACE Expert City'},
+  {id:'rat',name:'Nalanda Innovation Hub',area:'No. 23, Batugedara, Ratnapura',note:'Meeting rooms and creative workspace'},
+  {id:'bat',name:'TRACE Batticaloa',area:'Batticaloa, with DreamSpace Academy',note:'Workstations and community'},
+  {id:'mak',name:'TRACE BREAD Center',area:'Industrial Zone, Makandura, Gonawila',note:'Food and agriculture innovation, prototyping, training'},
+  {id:'uwu',name:'UWU Innovation Hub',area:'Uva Wellassa University, Badulla',note:'Co-working with mentoring and business support'}
+];
+const PARTNER_HUBS=['Southern Innovation Hub (Galle, Matara, Hambantota)','UOK Innovation Hub (University of Kelaniya)','ASAYA Workation, Mirissa (partner listing)'];
+const FAC=['High-Speed WiFi','4K Projectors','Air Conditioned','Sound System'];
+const DESK_C={day:1500,week:8000,month:25000}, DESK_R={day:1000,week:5500,month:18000};
+/* rate: LKR; unit 'hr' or 'day'; rate null = "On demand" (priced by staff) */
+const SPACES=[
+  {id:'bay7',loc:'c10',name:'BAY 07',type:'hall',capacity:80,amenities:FAC,rate:200000,unit:'day',conditions:'Hired per day',contact:'+94 701 800 786'},
+  {id:'creator',loc:'c10',name:'Creator Space',type:'room',capacity:150,amenities:FAC,rate:5000,note:'Plug & play venue for workshops, training and meetings',contact:'+94 701 800 786'},
+  {id:'ispace',loc:'c10',name:'I Space',type:'room',capacity:50,amenities:FAC,rate:2500,note:'Tech lab, product studio, meetings and workshops',contact:'076 643 3975'},
+  {id:'third',loc:'c10',name:'Third Place',type:'room',capacity:25,amenities:['High-Speed WiFi','Air Conditioned'],rate:2500,note:'Bay X café space for team sessions and small events',contact:'070 670 6791'},
+  {id:'idea',loc:'c10',name:'Idea Studio',type:'room',capacity:15,amenities:FAC,rate:1500,note:'AC19, deep-focus meeting room',contact:'+94 701 800 786'},
+  {id:'dsk',loc:'c10',name:'Hot desks',type:'desk',units:20,amenities:['Desk and chair','High-Speed WiFi','Air Conditioned'],rates:DESK_C,sample:true},
+  {id:'c04-dsk',loc:'c04',name:'Hot desks',type:'desk',units:15,amenities:['Desk and chair','High-Speed WiFi'],rates:DESK_C,sample:true},
+  {id:'c02-cw',loc:'c02',name:'Co-Working Colombo 02',type:'room',capacity:20,amenities:FAC,rate:null,note:'Meeting room and event space',contact:'070 181 0494'},
+  {id:'jaf-cw',loc:'jaf',name:'TRACE Co-Working Jaffna',type:'room',capacity:50,amenities:FAC,rate:null,contact:'+94 77 509 7390'},
+  {id:'kdy-ip',loc:'kdy',name:'Innovator Park',type:'room',capacity:15,amenities:FAC,rate:null,note:'Co-working, event and class space',contact:'+94 70 343 2351'},
+  {id:'rat-nih',loc:'rat',name:'Nalanda Innovation Hub',type:'room',capacity:150,amenities:FAC,rate:2500,contact:'071 289 1988'},
+  {id:'bat-dsk',loc:'bat',name:'Hot desks',type:'desk',units:10,amenities:['Workstation','High-Speed WiFi'],rates:DESK_R,sample:true},
+  {id:'mak-bread',loc:'mak',name:'BREAD Center',type:'room',capacity:150,amenities:FAC,rate:25000,note:'Food innovation, prototyping and training',contact:'+94 312 297 166'},
+  {id:'uwu-cw',loc:'uwu',name:'UVA Co-Working Space',type:'room',capacity:150,amenities:FAC,rate:1000,note:'External users Rs. 1,000/hr; UWU students free',contact:'055 222 6679'}
+];
+const money=n=>n==null?'On request':lkr(n);
+const rateText=x=>x.rate==null?'Price on request':lkr(x.rate)+(x.unit==='day'?'/day':'/h');
+let loc='c10';
+const lc=id=>LOCATIONS.find(l=>l.id===id);
+const locSpaces=(l=loc)=>SPACES.filter(x=>x.loc===l);
+const isDesk=id=>SPACES.find(s=>s.id===id)?.type==='desk';
+const TYPE_LABEL={room:'Room & studio',hall:'Auditorium & hall',desk:'Hot desks'};
+const PLAN_DAYS={day:1,week:7,month:30};
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const iso=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*60000);return z.toISOString().slice(0,10)};
+const today=()=>iso(new Date());
+const addDays=(s,n)=>{const d=new Date(s+'T00:00');d.setDate(d.getDate()+n);return iso(d)};
+const toMin=t=>+t.slice(0,2)*60+ +t.slice(3,5);
+const fromMin=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+const lkr=n=>'LKR '+Math.round(n).toLocaleString('en-US');
+const fmtDate=s=>new Date(s+'T00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+const sp=id=>SPACES.find(s=>s.id===id);
+const TIMES=[];for(let m=OPEN*60;m<=CLOSE*60;m+=30)TIMES.push(fromMin(m));
+
+/* ---------- state ---------- */
+let S, demoHL=null;
+function seed(){
+  const t=today(), t1=addDays(t,1), t2=addDays(t,2), tm3=addDays(t,-3), tm10=addDays(t,-10);
+  const b=(o)=>Object.assign({status:'active',paid:true,notes:'',phone:'',email:'',people:1},o);
+  return {seq:12,inquiries:[
+    {id:'q1',name:'Dilani Perera',email:'dilani@brightlabs.lk',phone:'077 123 4567',space:'bay7',date:addDays(t,6),time:'09:00–15:00',plan:'',msg:'Product launch for about 70 guests.',created:new Date().toISOString(),status:'new'},
+    {id:'q2',name:'Kasun Silva',email:'kasun.s@gmail.com',phone:'071 555 2020',space:'dsk',date:t1,time:'',plan:'month',msg:'Need one desk for remote work from tomorrow.',created:new Date().toISOString(),status:'new'}],
+  bookings:[
+    b({id:'b1',ref:'BK-0001',space:'creator',name:'Nagarro T2T IT Batch',email:'t2t@nagarro.com',date:t,start:'09:00',end:'17:00',people:25,notes:'Sponsored session'}),
+    b({id:'b2',ref:'BK-0002',space:'idea',name:'Ceylon Fintech',phone:'011 234 5678',date:t,start:'10:00',end:'12:00',people:6,paid:false}),
+    b({id:'b3',ref:'BK-0003',space:'ispace',name:'Hashini Fernando',date:t,start:'14:00',end:'16:30',people:10}),
+    b({id:'b4',ref:'BK-0004',space:'bay7',name:'SLASSCOM Meetup',email:'events@example.lk',date:t1,start:'13:00',end:'19:00',people:75,paid:false}),
+    b({id:'b5',ref:'BK-0005',space:'idea',name:'Ruwan Jayasinghe',date:t1,start:'09:00',end:'10:30',people:4}),
+    b({id:'b6',ref:'BK-0006',space:'dsk',name:'Remote team, WSO2 alumni',date:tm10,plan:'month',qty:10,endDate:addDays(tm10,29)}),
+    b({id:'b7',ref:'BK-0007',space:'dsk',name:'Amaya Wickrama',date:tm3,plan:'week',qty:3,endDate:addDays(tm3,6),paid:false}),
+    b({id:'b8',ref:'BK-0008',space:'dsk',name:'Nimal Rajapaksha',date:t,plan:'day',qty:3,endDate:t}),
+    b({id:'b9',ref:'BK-0009',space:'creator',name:'Code Club Colombo',date:t2,start:'08:00',end:'12:00',people:28,status:'cancelled'}),
+    b({id:'b10',ref:'BK-0010',space:'jaf-cw',name:'Northern Startup Circle',date:t,start:'15:00',end:'18:00',people:9,paid:false}),
+    b({id:'b11',ref:'BK-0011',space:'kdy-ip',name:'Peradeniya research team',date:t,start:'09:00',end:'12:00',people:12}),
+    b({id:'b12',ref:'BK-0012',space:'rat-nih',name:'Sabaragamuwa Coders',date:t,start:'09:00',end:'13:00',people:22})
+  ]};
+}
+function load(){try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);return}}catch(e){}S=seed()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+load();
+
+/* ---------- core rules ---------- */
+const active=s=>S.bookings.filter(b=>b.status==='active'&&(!s||b.space===s));
+function deskUsed(space,day,excl){return active(space).filter(b=>b.id!==excl&&b.date<=day&&b.endDate>=day).reduce((a,b)=>a+(+b.qty||0),0)}
+function roomClashes(space,date,start,end,excl){
+  const s=toMin(start),e=toMin(end);
+  return active(space).filter(b=>b.id!==excl&&b.date===date&&toMin(b.start)<e&&s<toMin(b.end));
+}
+function freeRooms(date,start,end,people,exclSpace,locId=loc){
+  return SPACES.filter(x=>x.loc===locId&&x.type!=='desk'&&x.id!==exclSpace&&x.capacity>=people&&!roomClashes(x.id,date,start,end).length);
+}
+function price(b){const x=sp(b.space);if(!x)return 0;if(x.type==='desk')return x.rates[b.plan]*(+b.qty||0);if(x.rate==null)return null;if(x.unit==='day')return x.rate;return x.rate*(toMin(b.end)-toMin(b.start))/60}
+function validate(b){
+  const x=sp(b.space);
+  if(!b.date)return{ok:false,title:'Pick a date'};
+  if(x.type==='desk'){
+    const q=+b.qty;if(!(q>=1))return{ok:false,title:'Enter how many desks'};
+    const N=x.units;
+    if(q>N)return{ok:false,title:`Only ${N} desks exist at ${lc(x.loc).name}`};
+    const end=addDays(b.date,PLAN_DAYS[b.plan]-1);
+    for(let d=b.date;d<=end;d=addDays(d,1)){const used=deskUsed(b.space,d,b.id);if(used+q>N){
+      const left=N-used;return{ok:false,clash:true,title:'Not enough desks',msg:`On ${fmtDate(d)} ${used} of ${N} desks are booked, so only ${left} ${left===1?'is':'are'} free. Reduce the number of desks or start on another date.`}}}
+    return{ok:true,title:`Available: ${q} desk${q>1?'s':''} from ${fmtDate(b.date)} to ${fmtDate(end)}`};
+  }
+  const s=toMin(b.start),e=toMin(b.end);
+  if(e<=s)return{ok:false,title:'End time must be after the start time'};
+  if(+b.people>x.capacity)return{ok:false,title:`${x.name} holds ${x.capacity} people`,msg:alt(b)};
+  const c=roomClashes(b.space,b.date,b.start,b.end,b.id);
+  if(c.length){const o=c[0];return{ok:false,clash:true,title:'Clash: this slot is already booked',
+    msg:`${x.name} is booked ${o.start}–${o.end} by ${o.name} (${o.ref}). ${alt(b)}`}}
+  return{ok:true,title:`Available: ${x.name}, ${fmtDate(b.date)}, ${b.start}–${b.end}`};
+}
+function alt(b){const f=freeRooms(b.date,b.start,b.end,+b.people||1,b.space,sp(b.space).loc);return f.length?'Free at this time: '+f.map(x=>x.name).join(', ')+'.':'No other space is free at this time.'}
+
+/* ---------- toast ---------- */
+let tt;function toast(m){$('.toast')?.remove();clearTimeout(tt);const d=document.createElement('div');d.className='toast';d.textContent=m;document.body.append(d);tt=setTimeout(()=>d.remove(),2600)}
+
+/* ---------- tabs ---------- */
+function show(tab){$$('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.tab===tab));$$('main>.pane').forEach(p=>p.hidden=p.id!=='p-'+tab);render();try{localStorage.setItem(KEY+'-tab',tab)}catch(e){}}
+$$('.tab').forEach(t=>t.onclick=()=>show(t.dataset.tab));
+
+/* ---------- availability ---------- */
+let day=today();
+function renderAvail(){
+  $('#availDate').value=day;
+  $('#availTitle').textContent=(day===today()?'Today, ':'')+new Date(day+'T00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  $('#availLoc').textContent=lc(loc).name+' · '+lc(loc).area;
+  const rooms=locSpaces().filter(x=>x.type!=='desk'), desks=locSpaces().filter(x=>x.type==='desk');
+  const ids=new Set(locSpaces().map(x=>x.id));
+  const dayB=S.bookings.filter(b=>b.status==='active'&&ids.has(b.space)&&!isDesk(b.space)&&b.date===day);
+  const freeAll=rooms.filter(x=>!dayB.some(b=>b.space===x.id)).length;
+  const hrs=dayB.reduce((a,b)=>a+(toMin(b.end)-toMin(b.start))/60,0);
+  const occ=rooms.length?Math.round(hrs/(rooms.length*(CLOSE-OPEN))*100):0;
+  const dTot=desks.reduce((a,x)=>a+x.units,0), dUsedAll=desks.reduce((a,x)=>a+deskUsed(x.id,day),0);
+  const unpaid=S.bookings.filter(b=>b.status==='active'&&ids.has(b.space)&&!b.paid).length;
+  $('#stats').innerHTML=`
+    <div class="stat"><b>${rooms.length?freeAll+' of '+rooms.length:'–'}</b><span>rooms free all day</span></div>
+    <div class="stat"><b>${rooms.length?occ+'%':'–'}</b><span>room hours booked</span></div>
+    <div class="stat"><b>${dTot?(dTot-dUsedAll)+' of '+dTot:'–'}</b><span>desks free</span></div>
+    <div class="stat"><b>${unpaid}</b><span>unpaid bookings here</span></div>`;
+  const span=(CLOSE-OPEN)*60;
+  let h='<div class="grow ghead"><div class="glabel"><span>Space</span></div><div class="gtrack hours">';
+  for(let i=OPEN;i<CLOSE;i++)h+=`<span style="left:${(i-OPEN)/(CLOSE-OPEN)*100}%">${String(i).padStart(2,'0')}:00</span>`;
+  h+='</div></div>';
+  const nowM=new Date().getHours()*60+new Date().getMinutes();
+  rooms.forEach(x=>{
+    h+=`<div class="grow"><div class="glabel"><b>${esc(x.name)}</b><span>Up to ${x.capacity} · ${rateText(x)}</span></div><div class="gtrack" data-space="${x.id}" title="Click an empty slot to book">`;
+    dayB.filter(b=>b.space===x.id).forEach(b=>{
+      const l=(toMin(b.start)-OPEN*60)/span*100,w=(toMin(b.end)-toMin(b.start))/span*100;
+      h+=`<button type="button" class="blk${b.paid?'':' unpaid'}" data-id="${b.id}" style="left:${l}%;width:${w}%" title="${esc(b.name)} ${b.start}–${b.end}"><b>${esc(b.name)}</b>${b.start}–${b.end}</button>`});
+    if(day===today()&&nowM>=OPEN*60&&nowM<=CLOSE*60)h+=`<div class="nowline" style="left:${(nowM-OPEN*60)/span*100}%"></div>`;
+    h+='</div></div>';
+  });
+  desks.forEach(x=>{const u=deskUsed(x.id,day);
+  h+=`<div class="grow"><div class="glabel"><b>${esc(x.name)}</b><span>${x.units} desks · ${lkr(x.rates.day)}/day (sample)</span></div>
+    <div class="gtrack desktrack" data-desk="${x.id}" title="Click to book desks"><div class="meter"><i style="width:${u/x.units*100}%"></i></div><span class="num"><b>${x.units-u}</b> free · ${u} booked</span></div></div>`});
+  $('#grid').innerHTML=h;
+  if(demoHL)$(`#grid [data-space="${demoHL}"]`)?.closest('.grow').classList.add('hl');
+}
+$('#grid').addEventListener('click',e=>{
+  const blk=e.target.closest('.blk');if(blk){openForm(S.bookings.find(b=>b.id===blk.dataset.id));return}
+  const dk=e.target.closest('[data-desk]');if(dk){openForm(null,{space:dk.dataset.desk,date:day});return}
+  const tr=e.target.closest('.gtrack[data-space]');if(!tr)return;
+  const r=tr.getBoundingClientRect();const hr=OPEN+Math.floor((e.clientX-r.left)/r.width*(CLOSE-OPEN));
+  openForm(null,{space:tr.dataset.space,date:day,start:fromMin(hr*60),end:fromMin(Math.min(hr+1,CLOSE)*60)});
+});
+$('#availDate').onchange=e=>{if(e.target.value){day=e.target.value;renderAvail()}};
+$('#prevDay').onclick=()=>{day=addDays(day,-1);renderAvail()};
+$('#nextDay').onclick=()=>{day=addDays(day,1);renderAvail()};
+$('#todayBtn').onclick=()=>{day=today();renderAvail()};
+
+/* finder */
+const fillTimes=(sel,val)=>{sel.innerHTML=TIMES.map(t=>`<option${t===val?' selected':''}>${t}</option>`).join('')};
+fillTimes($('#fdStart'),'09:00');fillTimes($('#fdEnd'),'12:00');$('#fdDate').value=today();
+$('#fdGo').onclick=()=>{
+  const d=$('#fdDate').value,s=$('#fdStart').value,e=$('#fdEnd').value,p=+$('#fdPeople').value||1;
+  const box=$('#fdResults');
+  if(!d||toMin(e)<=toMin(s)){box.innerHTML='<div class="res bad-t">Pick a date and an end time after the start.</div>';return}
+  const f=freeRooms(d,s,e,p);
+  box.innerHTML=f.length?f.map(x=>`<div class="res"><span><b>${esc(x.name)}</b> <span class="muted">· up to ${x.capacity} · ${money(price({space:x.id,start:s,end:e}))}</span></span><button class="btn sm primary" data-book="${x.id}">Book</button></div>`).join('')
+    :`<div class="res"><span>No room for ${p} people is free at ${esc(lc(loc).name)} on ${fmtDate(d)}, ${s}–${e}. Try another location.</span></div>`;
+  box.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>openForm(null,{space:b.dataset.book,date:d,start:s,end:e,people:p}));
+};
+
+/* ---------- bookings list ---------- */
+function fillBkSpace(){const v=$('#bkSpace').value;$('#bkSpace').innerHTML='<option value="">All spaces here</option>'+locSpaces().map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');if(sp(v)?.loc===loc)$('#bkSpace').value=v}
+fillBkSpace();
+['#bkSearch','#bkSpace','#bkStatus'].forEach(s=>$(s).addEventListener('input',renderBookings));
+function when(b){return isDesk(b.space)?`${fmtDate(b.date)} → ${fmtDate(b.endDate)}<small>${b.qty} desk${b.qty>1?'s':''} · per ${b.plan}</small>`:`${fmtDate(b.date)}<small class="mono">${b.start}–${b.end}</small>`}
+function renderBookings(){
+  const q=$('#bkSearch').value.trim().toLowerCase(),s=$('#bkSpace').value,st=$('#bkStatus').value;
+  $('#bkLoc').textContent=lc(loc).name;
+  let list=S.bookings.filter(b=>sp(b.space)?.loc===loc&&(!s||b.space===s)&&(!q||(b.name+' '+b.ref+' '+b.email+' '+b.phone).toLowerCase().includes(q))
+    &&(st==='all'||(st==='active'&&b.status==='active')||(st==='cancelled'&&b.status==='cancelled')||(st==='unpaid'&&b.status==='active'&&!b.paid)));
+  list.sort((a,b)=>(a.date+(a.start||'')).localeCompare(b.date+(b.start||'')));
+  $('#bkBody').innerHTML=list.length?list.map(b=>`<tr class="${b.status}">
+    <td class="mono">${b.ref}</td>
+    <td><b>${esc(b.name)}</b><small>${esc([b.phone,b.email].filter(Boolean).join(' · '))}</small></td>
+    <td>${esc(sp(b.space).name)}${b.people>1&&!isDesk(b.space)?`<small>${b.people} people</small>`:''}</td>
+    <td>${when(b)}</td>
+    <td class="num">${money(price(b))}</td>
+    <td>${b.paid?'<span class="pill p-ok">Paid</span>':`<button class="btn sm" data-pay="${b.id}">Mark paid</button>`}</td>
+    <td>${b.status==='active'?'<span class="pill p-ok">Confirmed</span>':'<span class="pill p-cx">Cancelled</span>'}</td>
+    <td><div class="row" style="flex-wrap:nowrap">${b.status==='active'?`<button class="btn sm" data-edit="${b.id}">Edit</button><button class="btn sm danger" data-cx="${b.id}">Cancel</button>`:`<button class="btn sm" data-restore="${b.id}">Restore</button>`}</div></td>
+  </tr>`).join(''):'<tr><td colspan="8" class="empty">No bookings match these filters.</td></tr>';
+}
+$('#bkBody').addEventListener('click',e=>{
+  const t=e.target.closest('button');if(!t)return;const id=t.dataset.edit||t.dataset.cx||t.dataset.pay||t.dataset.restore;const b=S.bookings.find(x=>x.id===id);if(!b)return;
+  if(t.dataset.edit)openForm(b);
+  if(t.dataset.pay){b.paid=true;save();renderBookings();toast(`${b.ref} marked paid`)}
+  if(t.dataset.cx){
+    if(t.dataset.armed){b.status='cancelled';save();renderBookings();toast(`${b.ref} cancelled. The slot is free again.`)}
+    else{t.dataset.armed='1';t.textContent='Confirm cancel';setTimeout(()=>{if(t.isConnected){delete t.dataset.armed;t.textContent='Cancel'}},3500)}
+  }
+  if(t.dataset.restore){const v=validate(Object.assign({},b,{status:'active'}));if(!v.ok){toast(v.title+' — cannot restore');return}b.status='active';save();renderBookings();toast(`${b.ref} restored`)}
+});
+
+/* ---------- spaces ---------- */
+function renderSpaces(){
+  $('#locCards').innerHTML=LOCATIONS.map(l=>{const ss=locSpaces(l.id);const r=ss.filter(x=>x.type!=='desk').length,d=ss.filter(x=>x.type==='desk').reduce((a,x)=>a+x.units,0);
+    return `<button type="button" class="loccard${l.id===loc?' on':''}" data-loc="${l.id}"><b>${esc(l.name)}</b><span>${esc(l.area)}</span><small>${[r?r+' room'+(r>1?'s':''):'',d?d+' desks':''].filter(Boolean).join(' · ')}</small></button>`}).join('');
+  $('#partners').textContent=PARTNER_HUBS.join(' · ');$('#locCount').textContent=LOCATIONS.length+' TRACE locations';
+  $('#spacesLoc').textContent=lc(loc).name;$('#spacesArea').textContent=lc(loc).area+'. '+lc(loc).note+'.';
+  $('#spaceCards').innerHTML=locSpaces().map(x=>`<div class="card">
+    <div class="type">${TYPE_LABEL[x.type]}</div><h3>${esc(x.name)}</h3>
+    <dl class="kv">${x.type==='desk'?`<dt>Desks</dt><dd>${x.units}</dd><dt>Per day</dt><dd>${lkr(x.rates.day)}</dd><dt>Per week</dt><dd>${lkr(x.rates.week)}</dd><dt>Per month</dt><dd>${lkr(x.rates.month)}</dd><dt>Note</dt><dd>Sample rates</dd>`
+      :`<dt>Capacity</dt><dd>${x.capacity} people</dd><dt>Rate</dt><dd>${rateText(x)}</dd>${x.conditions?`<dt>Terms</dt><dd>${esc(x.conditions)}</dd>`:''}${x.contact?`<dt>Contact</dt><dd>${esc(x.contact)}</dd>`:''}`}</dl>${x.note?`<p class="muted" style="margin:0;font-size:13px">${esc(x.note)}</p>`:''}
+    <div class="tags">${x.amenities.map(a=>`<span class="tag">${esc(a)}</span>`).join('')}</div>
+    <div><button class="btn sm primary" data-new="${x.id}">Book this space</button></div></div>`).join('');
+  $$('[data-new]').forEach(b=>b.onclick=()=>openForm(null,{space:b.dataset.new,date:day}));
+  $$('[data-loc]').forEach(b=>b.onclick=()=>setLoc(b.dataset.loc));
+}
+function setLoc(id){loc=id;$('#locSel').value=id;$('#pubLoc').value=id;fillPubSpaces();fillBkSpace();render();try{localStorage.setItem(KEY+'-loc',id)}catch(e){}}
+
+/* ---------- inquiries ---------- */
+function inqEmail(q){const x=sp(q.space),l=lc(x.loc);return `To: TRACE bookings team
+Subject: Booking request – ${l.name} – ${x.name} – ${fmtDate(q.date)}
+
+Name:     ${q.name}
+Email:    ${q.email}
+Phone:    ${q.phone||'–'}
+Location: ${l.name}, ${l.area}
+Space:    ${x.name}
+Date:    ${fmtDate(q.date)}${q.plan?`\nPlan:    per ${q.plan}`:q.time?`\nTime:    ${q.time}`:''}
+Message: ${q.msg||'–'}`}
+function renderInq(){
+  const n=S.inquiries.filter(q=>q.status==='new').length;$('#inqCount').hidden=!n;$('#inqCount').textContent=n;
+  const list=[...S.inquiries].sort((a,b)=>(a.status==='new'?0:1)-(b.status==='new'?0:1)||b.created.localeCompare(a.created));
+  $('#inqList').innerHTML=list.length?list.map(q=>`<div class="inq">
+    <div><div class="row"><b>${esc(q.name)}</b><span class="pill ${q.status==='new'?'p-new':q.status==='booked'?'p-ok':'p-cx'}">${q.status==='new'?'New':q.status==='booked'?'Booked':'Closed'}</span></div><pre>${esc(inqEmail(q))}</pre></div>
+    <div class="acts">${q.status==='new'?`<button class="btn sm primary" data-conv="${q.id}">Create booking</button><button class="btn sm" data-close="${q.id}">Close</button>`:''}<button class="btn sm" data-copy="${q.id}">Copy email</button></div></div>`).join('')
+    :'<div class="empty panel">No inquiries yet. Requests sent from the Public page appear here.</div>';
+}
+let convFrom=null;
+$('#inqList').addEventListener('click',e=>{
+  const t=e.target.closest('button');if(!t)return;const q=S.inquiries.find(x=>x.id===(t.dataset.conv||t.dataset.close||t.dataset.copy));if(!q)return;
+  if(t.dataset.close){q.status='closed';save();renderInq()}
+  if(t.dataset.copy){const txt=inqEmail(q);(navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Email copied'),()=>toast('Copy blocked here. Select the text instead.'))}
+  if(t.dataset.conv){
+    const m=/(\d{1,2}[:.]\d{2})\s*[–-]\s*(\d{1,2}[:.]\d{2})/.exec(q.time||'');
+    const norm=s=>{const [h,mm]=s.replace('.',':').split(':');return h.padStart(2,'0')+':'+mm};
+    convFrom=q.id;if(sp(q.space).loc!==loc)setLoc(sp(q.space).loc);
+    openForm(null,{space:q.space,date:q.date,name:q.name,email:q.email,phone:q.phone,notes:q.msg,plan:q.plan||'day',
+      start:m?norm(m[1]):'09:00',end:m?norm(m[2]):'10:00'});
+  }
+});
+
+/* ---------- public page ---------- */
+const optOf=x=>`<option value="${x.id}">${esc(x.name)}${x.type==='desk'?` (${x.units} desks)`:` (up to ${x.capacity})`}</option>`;
+const spaceOpts=()=>LOCATIONS.map(l=>`<optgroup label="${esc(l.name)}">${locSpaces(l.id).map(optOf).join('')}</optgroup>`).join('');
+const locOpts=()=>LOCATIONS.map(l=>`<option value="${l.id}">${esc(l.name)}</option>`).join('');
+$('#locSel').innerHTML=locOpts();$('#pubLoc').innerHTML=locOpts();
+function fillPubSpaces(){$('#pq-space').innerHTML=locSpaces($('#pubLoc').value).map(optOf).join('');$('#pq-space').onchange?.()}
+$('#pubDate').value=today();$('#pq-date').value=addDays(today(),1);
+function renderPublic(){
+  const d=$('#pubDate').value||today();
+  $('#pubAvail').innerHTML=locSpaces($('#pubLoc').value).map(x=>{
+    if(x.type==='desk'){const f=x.units-deskUsed(x.id,d);return `<div><span>${x.name}</span><span class="${f?'ok-t':'bad-t'}">${f} of ${x.units} free</span></div>`}
+    const bs=active(x.id).filter(b=>b.date===d).sort((a,b)=>a.start.localeCompare(b.start));
+    return `<div><span>${x.name}</span><span class="${bs.length?'':'ok-t'}">${bs.length?'Booked '+bs.map(b=>b.start+'–'+b.end).join(', '):'Free all day'}</span></div>`}).join('');
+}
+$('#pubDate').onchange=renderPublic;
+$('#pubLoc').onchange=()=>{fillPubSpaces();renderPublic()};
+$('#pq-space').onchange=()=>{const desk=isDesk($('#pq-space').value);$('#pq-planWrap').hidden=!desk;$('#pq-timeWrap').hidden=desk};
+$('#pubForm').onsubmit=e=>{
+  e.preventDefault();const g=id=>$('#pq-'+id).value.trim();
+  const err=$('#pq-err');
+  if(!g('name')||!/^\S+@\S+\.\S+$/.test(g('email'))||!g('date')){err.hidden=false;err.textContent='Enter your name, a valid email and a date.';return}
+  err.hidden=true;
+  const desk=isDesk(g('space'));
+  S.inquiries.push({id:'q'+Date.now(),name:g('name'),email:g('email'),phone:g('phone'),space:g('space'),date:g('date'),time:desk?'':g('time'),plan:desk?g('plan'):'',msg:g('msg'),created:new Date().toISOString(),status:'new'});
+  save();renderInq();
+  $('#pq-sent').hidden=false;$('#pq-sent').innerHTML=`<b>Request received.</b> The Trace team will contact you at ${esc(g('email'))}. <span class="muted">(Demo: it now appears under Inquiries.)</span>`;
+  ['name','phone','email','time','msg'].forEach(k=>$('#pq-'+k).value='');
+};
+
+/* ---------- booking form ---------- */
+let editing=null;
+$('#f-space').innerHTML=spaceOpts();
+fillTimes($('#f-start'),'09:00');fillTimes($('#f-end'),'10:00');
+const F=k=>$('#f-'+k);
+function formData(){const space=F('space').value,desk=isDesk(space),date=F('date').value,plan=F('plan').value;
+  return{id:editing?.id,space,date,start:F('start').value,end:F('end').value,people:+F('people').value||1,plan,qty:+F('qty').value,
+    endDate:desk&&date?addDays(date,PLAN_DAYS[plan]-1):undefined,name:F('name').value.trim(),phone:F('phone').value.trim(),email:F('email').value.trim(),notes:F('notes').value.trim(),paid:F('paid').checked}}
+function check(){
+  const b=formData(),desk=isDesk(b.space);
+  ['start','end','people'].forEach(k=>$('#w-'+k).hidden=desk);['plan','qty'].forEach(k=>$('#w-'+k).hidden=!desk);
+  const v=validate(b);const box=$('#fCheck');
+  box.className='check '+(v.ok?'ok':'bad');box.innerHTML=`<b>${esc(v.title)}</b>${v.msg?esc(v.msg):''}`;
+  $('#fPrice').textContent=v.ok||v.clash?money(price(b)):'–';
+  $('#fSave').disabled=!v.ok;return v;
+}
+$('#bkForm').addEventListener('input',check);$('#bkForm').addEventListener('change',check);
+function openForm(b,pre={}){
+  editing=b||null;
+  const d=Object.assign({space:locSpaces()[0].id,date:day,start:'09:00',end:'10:00',people:1,plan:'day',qty:1,name:'',phone:'',email:'',notes:'',paid:false},b||{},pre);
+  $('#fTitle').textContent=b?`Edit ${b.ref}`:'New booking';
+  F('space').value=d.space;F('date').value=d.date;F('start').value=d.start||'09:00';F('end').value=d.end||'10:00';F('people').value=d.people;
+  F('plan').value=d.plan||'day';F('qty').value=d.qty||1;F('name').value=d.name;F('phone').value=d.phone;F('email').value=d.email;F('notes').value=d.notes;F('paid').checked=!!d.paid;
+  $('#overlay').hidden=false;check();setTimeout(()=>F('name').focus(),30);
+}
+function closeForm(){$('#overlay').hidden=true;editing=null;convFrom=null}
+$('#fClose').onclick=closeForm;$('#fCancel').onclick=closeForm;
+$('#overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeForm()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#overlay').hidden)closeForm()});
+$('#bkForm').onsubmit=e=>{
+  e.preventDefault();const v=check();if(!v.ok)return;
+  const b=formData();if(!b.name){$('#fCheck').className='check bad';$('#fCheck').innerHTML='<b>Enter the customer name</b>';F('name').focus();return}
+  const desk=isDesk(b.space);
+  const rec={space:b.space,date:b.date,name:b.name,phone:b.phone,email:b.email,notes:b.notes,paid:b.paid,
+    ...(desk?{plan:b.plan,qty:b.qty,endDate:b.endDate,start:undefined,end:undefined,people:1}:{start:b.start,end:b.end,people:b.people,plan:undefined,qty:undefined,endDate:undefined})};
+  let ref;
+  if(editing){Object.assign(editing,rec);ref=editing.ref}
+  else{S.seq++;ref='BK-'+String(S.seq).padStart(4,'0');S.bookings.push({id:'b'+Date.now(),ref,status:'active',...rec})}
+  if(convFrom){const q=S.inquiries.find(x=>x.id===convFrom);if(q)q.status='booked'}
+  save();closeForm();if(!desk)day=b.date;if(sp(b.space).loc!==loc)setLoc(sp(b.space).loc);render();toast(`${ref} saved`);
+};
+$('#newBtn').onclick=()=>openForm(null);
+
+/* ---------- guided demo ---------- */
+const T=()=>today();
+const STEPS=[
+  {t:'The problem',s:'TRACE lists its spaces online, from BAY 07 in Colombo to Jaffna, Kandy and Makandura, but bookings still run on calls and Excel. Several staff take calls, so the same space gets booked twice and nobody can see what is free. This is Trace Spaces: one shared booking desk.',
+    run:()=>show('avail')},
+  {t:'See what is free in one view',s:'We start at TRACE Expert City, Colombo 10. Every space is on one timeline for the day. Creator Space is booked 09:00–17:00 by the Nagarro T2T batch. The stats show free rooms, free desks and unpaid bookings.',
+    run:()=>{demoHL='creator';show('avail')}},
+  {t:'A clash is blocked',s:'A second customer calls for Creator Space, 11:00–12:00, for 10 people. Excel would accept it. Here Save is disabled, and the app shows who holds the slot and which rooms are free.',
+    run:()=>{show('avail');openForm(null,{space:'creator',date:T(),start:'11:00',end:'12:00',people:10,name:'Ceylon Tech Talks',phone:'077 987 6543'})}},
+  {t:'Switch to a free room',s:'Staff pick the suggested I Space. The check turns green and the total is calculated from its real rate, Rs. 2,500 an hour.',
+    run:()=>{F('space').value='ispace';check()}},
+  {t:'Saved with no double booking',s:'The booking gets a reference number and appears on the timeline straight away.',
+    run:()=>{$('#bkForm').requestSubmit();demoHL='ispace';renderAvail()}},
+  {t:'Desks are capped at 20',s:'A team asks for 6 hot desks today. 16 of 20 are already taken across day, week and month plans, so the system refuses and says why.',
+    run:()=>{demoHL=null;renderAvail();openForm(null,{space:'dsk',date:T(),plan:'day',qty:6,name:'Startup team'})}},
+  {t:'Customers request online',s:'On the public page a customer checks a date, sees what is free and sends a request. No more lost calls or slow emails.',
+    run:()=>{closeForm();show('public');$('#pubLoc').value='c10';fillPubSpaces();const d1=addDays(T(),1);$('#pubDate').value=d1;renderPublic();
+      const v={name:'Dilshan Fonseka',phone:'076 222 3344',email:'dilshan@launchpad.lk',time:'09:00–13:00',msg:'Product launch, about 70 guests.'};
+      Object.entries(v).forEach(([k,x])=>$('#pq-'+k).value=x);$('#pq-space').value='bay7';$('#pq-space').onchange();$('#pq-date').value=d1;$('#pubForm').requestSubmit()}},
+  {t:'One click from request to booking',s:'The request lands in Inquiries with the email the admin team receives. One click opens a pre-filled booking, and the clash check still runs.',
+    run:()=>{show('inq');const q=S.inquiries[S.inquiries.length-1];$(`[data-conv="${q.id}"]`)?.click()}},
+  {t:'Records and payments in one place',s:'Every booking has a customer, a total and a payment status. Staff filter unpaid bookings, mark them paid, edit or cancel. Cancelling frees the slot but keeps the record.',
+    run:()=>{$('#bkForm').requestSubmit();show('bookings');$('#bkStatus').value='unpaid';renderBookings()}},
+  {t:'Every TRACE location, one system',s:'Switch location and the same rules apply. The Jaffna co-working space has a Northern Startup Circle meeting this afternoon. It is listed as "On demand", so the total shows as On request for staff to price. Staff in Colombo can answer a Jaffna call without phoning Jaffna.',
+    run:()=>{day=T();setLoc('jaf');show('avail')}},
+  {t:'Beyond Trace',s:'The same model fits any venue that rents space: BMICH, wedding halls, theatres. Next steps: real rates and rooms from TRACE, a shared database, staff login, real emails and online payment.',
+    run:()=>{setLoc('c10');show('solution')}}
+];
+let dIdx=0;
+function goTo(n){
+  dIdx=Math.max(0,Math.min(STEPS.length-1,n));
+  demoHL=null;S=seed();save();closeForm();setLoc('c10');$('#pq-sent').hidden=true;$('#bkStatus').value='active';day=T();
+  for(let i=0;i<=dIdx;i++)STEPS[i].run();
+  $('#dStep').textContent=`STEP ${dIdx+1} OF ${STEPS.length}`;$('#dTitle').textContent=STEPS[dIdx].t;$('#dSay').textContent=STEPS[dIdx].s;
+  $('#dBack').disabled=dIdx===0;$('#dNext').textContent=dIdx===STEPS.length-1?'Finish':'Next';
+  window.scrollTo(0,0);
+}
+function exitDemo(){$('#demobar').hidden=true;document.body.classList.remove('demo');demoHL=null;closeForm();renderAvail()}
+$('#demoBtn').onclick=()=>{$('#demobar').hidden=false;document.body.classList.add('demo');goTo(0)};
+$('#dNext').onclick=()=>dIdx===STEPS.length-1?exitDemo():goTo(dIdx+1);
+$('#dBack').onclick=()=>goTo(dIdx-1);
+$('#dExit').onclick=exitDemo;
+document.addEventListener('keydown',e=>{if($('#demobar').hidden||/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName))return;
+  if(e.key==='ArrowRight')$('#dNext').click();if(e.key==='ArrowLeft'&&dIdx>0)goTo(dIdx-1)});
+
+function render(){renderAvail();renderBookings();renderSpaces();renderInq();renderPublic()}
+$('#locSel').onchange=e=>setLoc(e.target.value);
+let startTab='avail',startLoc='c10';try{startTab=localStorage.getItem(KEY+'-tab')||'avail';startLoc=localStorage.getItem(KEY+'-loc')||'c10'}catch(e){}
+if(!lc(startLoc))startLoc='c10';
+loc=startLoc;$('#locSel').value=loc;$('#pubLoc').value=loc;fillPubSpaces();fillBkSpace();
+show(startTab);
+setInterval(()=>{if(!$('#p-avail').hidden&&day===today())renderAvail()},60000);
+})();
+</script>
