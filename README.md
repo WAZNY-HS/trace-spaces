@@ -11,7 +11,7 @@ A booking system for TRACE Sri Lanka's hubs (from BAY 07 at TRACE Expert City, C
 | Shaffron Wazny | Project lead / Scrum master | `index.html`, `logo.png`, `README.md` |
 | R. Anuja Geesara Karunarathana | Business analyst | `docs/BACKLOG.md` |
 | Ranithu Kavithmal Dimunga | Developer (clash logic) | `docs/BUSINESS-RULES.md` |
-| Thahirah Razmi | Developer (availability) | `docs/DEMO-SCRIPT.md` |
+| Fathima Thahirah Razmi | Developer (availability) | `docs/DEMO-SCRIPT.md` |
 | G.L.D.A. De Silva | Developer / QA | `docs/RISKS-AND-NEXT-STEPS.md` |
 
 ## Run it
